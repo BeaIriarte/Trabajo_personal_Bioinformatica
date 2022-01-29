@@ -19,8 +19,6 @@ vuelos_NA <- delete.na(vuelos)
 
 ## Ejercicio 1. Encuentra todos los vuelos que llegaron más de una hora tarde de lo previsto
 
-?flights
-
 tarde <- vuelos_NA[which(vuelos_NA$arr_delay > 60),]
 dim(tarde)
 
@@ -92,8 +90,8 @@ dim(desconocidos)
 
 ## Ejercicio 9. ¿Qué variables del dataset contienen valores desconocidos?
 
-?is.na
 summary(vuelos)
+
 ## Las variables que contienen valores desconocidos son: dep_time (8255), dep_delay (8255), arr_time (8713) y arr_delay (9430).
 
 ## Ejercicio 10. Ordena los vuelos de flights para encontrar los vuelos más retrasados en la salida. ¿Qué vuelos fueron los que salieron los primeros antes de lo previsto?
