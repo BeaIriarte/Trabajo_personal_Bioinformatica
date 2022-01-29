@@ -32,6 +32,7 @@ dim(dest_NY)
 dest_NY2 <- vuelos_NA[which(vuelos_NA$dest == "OAK"),]
 dim(dest_NY2)
 
+filter(vuelos_NA, dest == "OAK" | dest == "SFO")
 Sanfrancisco <- 13173/309
 
 
@@ -45,6 +46,7 @@ dim(carrier_UA)
 carrier_AA <- vuelos_NA[which(vuelos_NA$carrier == "AA"),]
 dim(carrier_AA)
 
+filter(vuelos_NA, carrier == "AA" | carrier == "UA")
 ## Ejercicio 4. Encuentra todos los vuelos que salieron los meses de primavera (Abril, Mayo y Junio)
 
 abril <- vuelos_NA[which(vuelos_NA$month == 4),]
@@ -63,8 +65,11 @@ dim(abril_mayo_junio)
 ##Ejercicio 5. Encuentra todos los vuelos que llegaron más de una hora tarde pero salieron con menos de una hora de retraso.
 
 tarde <- vuelos_NA[which(vuelos_NA$arr_delay > 60),]
+
 tarde_pronto60 <- tarde[which(tarde$dep_delay < 60),]
 dim(tarde_pronto60)               
+
+filter(vuelos_NA, arr_delay > 60 & dep_delay <60)
 
 ## Ejercicio 6. Encuentra todos los vuelos que salieron con más de una hora de retraso pero consiguieron llegar con menos de 30 minutos de retraso (el avión aceleró en el aire)
 
@@ -140,9 +145,9 @@ head(vuelos_cortos2)
 
 ## Ejercicio 14. El dataset de vuelos tiene dos variables, dep_time y sched_dep_time muy útiles pero difíciles de usar por cómo vienen dadas al no ser variables continuas. Fíjate que cuando pone 559, se refiere a que el vuelo salió a las 5:59... Convierte este dato en otro más útil que represente el número de minutos que pasan desde media noche.
 
-vuelos_NA$HoraSalida <- c(vuelos_NA$hour*60+vuelos_NA$minute)
 
-vuelos_NA$HoraSalidaRetraso <- c(vuelos_NA$hour*60+vuelos_NA$minute+vuelos_NA$dep_delay)
+vuelos$horasalida<-(vuelos$dep_time %/% 100 * 60) + (vuelos$dep_time %% 100)
+vuelos$horasalretraso<-(vuelos$sched_dep_time %/% 100 * 60) + (vuelos$sched_dep_time %% 100)
 
 ## Ejercicio 15. dep_time, sched_dep_time, dep_delay
 
@@ -216,9 +221,31 @@ cancelled_and_delays <-
   
 ## Se intuye que existe una relación creciente entre el retraso medio de salida y el retraso medio de llegada y la proporción de vuelos cancelados.
 
+proptard_canc <- 
+  vuelos %>%
+  mutate(cancelados = (is.na(tailnum))) %>%
+  group_by(year, month, day) %>%
+  summarise(cancelados_prop = mean(cancelados),med_dep_delay = mean(dep_delay, na.rm = TRUE),med_arr_delay = mean(arr_delay, na.rm = TRUE)) %>% ungroup()
 
+ggplot(proptard_canc) +
+  geom_point(aes(x = med_dep_delay, y = cancelados_prop, col=cancelados_prop))
+  
+  ggplot(proptard_canc) +
+  geom_point(aes(x = med_arr_delay, y = cancelados_prop, col=cancelados_prop))
+  
 ## Ejercicio 18. Investiga si la proporción de vuelos cancelados está relacionada con el retraso promedio por aeropuerto en los vuelos.
 
+proptard_canc_aer <- 
+  vuelos %>%
+  mutate(cancelados = (is.na(tailnum))) %>%
+  group_by(origin, dest) %>%
+  summarise(cancelados_prop = mean(cancelados),med_dep_delay = mean(dep_delay, na.rm = TRUE),med_arr_delay = mean(arr_delay, na.rm = TRUE)) %>% ungroup()
+
+ggplot(proptard_canc_aer) +
+  geom_point(aes(x = med_dep_delay, y = cancelados_prop, col=cancelados_prop))
+  
+  ggplot(proptard_canc_aer) +
+  geom_point(aes(x = med_arr_delay, y = cancelados_prop, col=cancelados_prop))
 
 ## Ejercicio 19. ¿Qué compañía aérea sufre los peores retrasos?
 
@@ -237,13 +264,25 @@ vuelos %>%
 # Conviene volar a las 5,6,7,8 o 9 de la mañana.
 
 ## Ejercicio 21. Queremos saber qué día de la semana nos conviene volar si queremos evitar los retrasos en la salida.
+library(lubridate)
+  
+make_datetime_100 <- function(year, month, day, time) {
+  make_datetime(year, month, day, time %/% 100, time %% 100)
+}
 
-vuelos %>%
-  group_by(day) %>%
-  summarise(arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
-  arrange(arr_delay)
+flights_dt <- vuelos %>%
+  filter(!is.na(dep_time), !is.na(arr_time)) %>%
+  mutate(
+    dep_time = make_datetime_100(year, month, day, dep_time),
+    arr_time = make_datetime_100(year, month, day, arr_time),
+    sched_dep_time = make_datetime_100(year, month, day, sched_dep_time),
+    sched_arr_time = make_datetime_100(year, month, day, sched_arr_time)
+  ) %>%
+  select(origin, dest, ends_with("delay"), ends_with("time"))
+  
   
 # Conviene salir los días 4,6,15 o 29 de cada mes.
+  
   
 ## Ejercicio 22. Para cada destino, calcula el total de minutos de retraso acumulado.
 
@@ -258,7 +297,6 @@ vuelos %>%
 select(dest, month, day, dep_time, carrier, flight,
          arr_delay, arr_delay_prop) %>%
 arrange(dest, desc(arr_delay_prop))
-
 
 
 ## Ejercicio 23. Para cada uno de ellos, calcula la proporción del total de retraso para dicho destino.
@@ -277,9 +315,19 @@ vuelos %>%
 
 ## Ejercicio 24. Es hora de aplicar todo lo que hemos aprendido para visualizar mejor los tiempos de salida para vuelos cancelados vs los no cancelados. Recuerda bien qué tipo de dato tenemos en cada caso. ¿Qué deduces acerca de los retrasos según la hora del día a la que está programada el vuelo de salida?
 
+flights_dt %>%
+  mutate(sched_dep_hour = hour(sched_dep_time)) %>%
+  group_by(sched_dep_hour) %>%
+  summarise(dep_delay = mean(dep_delay)) %>%
+  ggplot(aes(y = dep_delay, x = sched_dep_hour)) +
+  geom_point() +
+  geom_smooth()
 
+### Se puede deducir que a lo largo del transcurso del día, los vuelos cada vez se atrasan más en su salida. Esto parece que de madrugada se vuelve a normalizar y empieza otra vez a elevarse a partir de las 5 de la mañana.
 
 ## Ejercicio 25. Subir la carpeta a github y facilitar la url.
 
 
 ## Ejercicio 26. Al finalizar el documento agrega el comando sessionInfo()
+
+sessionInfo()
