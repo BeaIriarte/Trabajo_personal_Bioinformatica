@@ -86,7 +86,8 @@ dim(nocturnos)
 ### Ejercicio 8. ¿Cuántos vuelos tienen un valor desconocido de dep_time?
 
 desconocidos <- filter(vuelos, is.na(dep_time))
-dim(desconocidos) 
+dim(desconocidos)
+
 
 ## Ejercicio 9. ¿Qué variables del dataset contienen valores desconocidos?
 
